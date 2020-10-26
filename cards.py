@@ -8,12 +8,13 @@ import string
 from copy import deepcopy
 from datetime import datetime
 
-token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.npoZRpWrFSQLLAlay90Vz70L57Q"
+token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.uvIZlzRMu_CkDcrtUBzzNeOj2xE"
 client = discord.Client()
 
 VERSION = "0.0.0"
 
 CARDS = ["0","Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King","Ace"]
+
 class card:
     def __init__(self, val, suit):
         self.val = val
@@ -54,9 +55,15 @@ GAME_TEMPLATE = {
     "channel_id":0,
     "game_type":"",
     "start_time":"",
-    "players":[],
+    "players":[{"player_id":0,"player_name":"","hand":[]}],
+    "data":{},
     "deck":[]
 }
+
+EMOJI = {
+    "use":"⤴️"
+}
+
 
 ### ON READY
 @client.event
@@ -74,31 +81,67 @@ async def on_message(message):
 
     if user == client.user: return
 
-    if message.content.lower() == "start durak":
+    game = None
+    for x in games:
+        if x["channel_id"] == message.channel.id:
+            game = x
+
+
+    # COMMANDS #
+
+    if message.content.lower() == ".durak":
         new_game = {}
         new_game["owner_id"] = user.id
         new_game["channel_id"] = message.channel.id
-        new_game["game_type"] = "durak"
-        new_game["start_time"] = datetime.utcnow().__str__() + " UTC"
-        new_game["deck"] = build_deck("durak")
-        new_game["data"] = {"attacker_id":0,"defender_id":0,}
-        new_game["player"]
+        new_game["game_type"] = "Durak"
+        new_game["start_time"] = ""
+        new_game["deck"] = build_deck("Durak")
+        new_game["data"] = {"trump":"","attacker_id":0,"defender_id":0,}
+        new_game["players"] = [{"player_id":user.id,"player_name":user.display_name,"hand":[]}]
         games.append(new_game)
-        await message.channel.send(f"**__Starting a game of Durak!__**\nGame owner: {user.display_name}\n*Join with* `.join (game owner)`")
+        await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if message.content.lower() == ".join":
-        mention = re.findall(r"<@[!&]\d+>(?=\W*?\w)", message.content)[0]
-        mention = int(mention[3:len(mention)-1])
+        # errors #
+        if game is None:
+            await message.channel.send("There are no ongoing games in this channel.")
+            return
+        if game["start_time"] != "": # return error if game has already started
+            await message.channel.send("Game has already started.")
+            return
+        # errors #
 
-        for game in games:
-            if game["channel_id"] == message.channel.id and game["owner_id"] == mention:
-                {"player_id":0,"hand":[]}
+        game["players"].append({"player_id":user.id,"player_name":user.display_name,"hand":[]})
+        await message.channel.send(f"{user.display_name} joined the game!")
+    
+    if message.content.lower() == ".start":
+        # errors #
+        if game is None:
+            await message.channel.send("There are no pending games in this channel.")
+            return
+        if game["start_time"] != "": # return error if game has already started
+            await message.channel.send("Game has already started.")
+            return
+        # errors #
+
+        game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
+
+        if game["game_type"] == "Durak":
+            trump = game["deck"].pop() # assign trump
+            game["data"]["trump"] = trump.suit
+            await message.channel.send(f"{trump.suit} is trump!\n{trump.display()}")
+            for p in range(len(game["players"])): # deal cards
+                draw(game["deck"], game["players"][p]["hand"], 6)
+                await user.create_dm()
+                for card_name in [x.display() for x in game["players"][p]["hand"]]:
+                    bot_msg = await user.dm_channel.send(card_name)
+                    await bot_msg.add_reaction(EMOJI["use"])
 
 
 
 def build_deck(game):
     deck = []
-    if game == "durak" or game == "standard":
+    if game == "Durak" or game == "standard":
         for suit in ["Clubs","Diamonds","Hearts","Spades"]:
             for value in range(1 if game == "standard" else 6, 14):
                 new_card = card(value, suit)
@@ -106,11 +149,7 @@ def build_deck(game):
     shuffle(deck)
     return deck
 
-
-def draw(deck, amount):
-    cards = []
-    for i in range(amount):
-        cards.append(deck.pop())
-    return cards
+def draw(from_deck, to_deck, amount):
+    for _ in range(amount): to_deck.append(from_deck.pop())
 
 client.run(token)
