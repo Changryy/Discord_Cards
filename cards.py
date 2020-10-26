@@ -16,11 +16,15 @@ VERSION = "0.0.0"
 SUITS = ["Diamonds","Hearts","Clubs","Spades"]
 CARDS = ["0","Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King","Ace"]
 
-class card:
-    def __init__(self, val, suit):
+cards_by_id = {}
+
+class Card:
+    def __init__(self, val, suit, game):
         self.val = val
         self.suit = suit
         self.name = CARDS[val]
+        self.game = game
+        self.deck = None
 
     def __str__(self):
         return "card"
@@ -65,7 +69,6 @@ EMOJI = {
     "use":"⤴️"
 }
 
-
 ### ON READY
 @client.event
 async def on_ready():
@@ -97,12 +100,13 @@ async def on_message(message):
             return
         # errors #
 
+        game_id = len(games)
         new_game = {}
         new_game["owner_id"] = user.id
         new_game["channel_id"] = message.channel.id
         new_game["game_type"] = "Durak"
         new_game["start_time"] = ""
-        new_game["deck"] = build_deck("Durak")
+        new_game["deck"] = build_deck("Durak", game_id)
         new_game["data"] = {"trump":"","attacker":0,"cards":[],"attack_card":None}
         new_game["players"] = [{"player_id":user.id,"player_name":user.display_name,"hand":[]}]
         games.append(new_game)
@@ -145,8 +149,10 @@ async def on_message(message):
                 draw(game["deck"], game["players"][p]["hand"], 6)
                 await user.create_dm()
                 sort(game["players"][p]["hand"])
-                for card_name in [x.display() for x in game["players"][p]["hand"]]:
-                    bot_msg = await user.dm_channel.send(card_name)
+                for card in [x for x in game["players"][p]["hand"]]:
+                    bot_msg = await user.dm_channel.send(card.display())
+                    card.discord_id = bot_msg.id
+                    cards_by_id[card.discord_id] = card
                     await bot_msg.add_reaction(EMOJI["use"])
 
 
@@ -155,17 +161,23 @@ def sort(cards):
     cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.val)
 
 
-def build_deck(game):
+def build_deck(game_type, game):
     deck = []
-    if game == "Durak" or game == "standard":
+    if game_type == "Durak" or game_type == "standard":
         for suit in SUITS:
-            for value in range(1 if game == "standard" else 6, 15):
-                new_card = card(value, suit)
+            for value in range(1 if game_type == "standard" else 6, 15):
+                new_card = Card(value, suit, game)
                 deck.append(new_card)
     shuffle(deck)
     return deck
 
 def draw(from_deck, to_deck, amount):
-    for _ in range(amount): to_deck.append(from_deck.pop())
+    for _ in range(amount):
+        card = from_deck.pop()
+        card.deck = to_deck
+        to_deck.append(card)
 
 client.run(token)
+
+
+#game=games[cards_by_id[id].game]
