@@ -58,6 +58,11 @@ GAME_TEMPLATE = {
     "deck":[]
 }
 
+def search(games, owner_id, channel_id):
+    mylist = [x for x in games if x['owner_id']==owner_id and x['channel_id']==channel_id]
+    assert(len(mylist)==1)
+    return mylist[0]
+
 ### ON READY
 @client.event
 async def on_ready():
@@ -105,7 +110,6 @@ def build_deck(game):
                 deck.append(new_card)
     shuffle(deck)
     return deck
-
 
 def draw(deck, amount):
     cards = []
