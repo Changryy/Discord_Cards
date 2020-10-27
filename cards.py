@@ -67,7 +67,8 @@ GAME_TEMPLATE = {
 }
 
 EMOJI = {
-    "use":"⤴️"
+    "use":"⤴️",
+    "pass":"⏩"
 }
 
 # --------------------------------------------------------------------
@@ -112,7 +113,7 @@ async def on_message(message):
         new_game["channel_id"] = message.channel.id
         new_game["game_type"] = "Durak"
         new_game["deck"] = build_deck("Durak", game_id)
-        new_game["data"] = {"trump":"","attacker":None,"cards":[],"attack_card":None}
+        new_game["data"] = {"trump":"","attacker":0,"cards":[],"attack_card":None}
         new_game["players"] = [{"player_id":user.id,"player_name":user.display_name,"hand":[]}]
         games.append(new_game)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
@@ -190,9 +191,7 @@ async def on_reaction_add(reaction, user):
         
         
         if game["game_type"] == "Durak":
-            defender = None
-            if not game["info"]["attacker"] is None:
-                defender = game["players"][ (game["players"].index(game["data"]["attacker"])+1) % len(game["players"]) ]
+            defender = game["players"][ (game["data"]["attacker"]+1) % len(game["players"]) ]["player_id"]
 
 
             if len(game["data"]["cards"])%2 == 0 and card.wielder != defender: # attacker code
@@ -201,7 +200,7 @@ async def on_reaction_add(reaction, user):
                     await channel.send("Cannot attack with more than 6 cards in a bout.")
                     return
 
-                if card.wielder == game["data"]["attacker"]: # main attacker
+                if card.wielder == game["players"][game["data"]["attacker"]]["player_id"]: # main attacker
                     insert(card, game["data"]["cards"])
                     game["data"]["attack_card"] = card
                 
@@ -218,15 +217,34 @@ async def on_reaction_add(reaction, user):
                     insert(card, game["data"]["cards"])
                 else:
                     await channel.send("Invalid card.")
+            
+    elif command == "pass":
+        game = list(filter(lambda a: a != None, [x if x["channel_id"] == channel.id else None for x in games] ))[0]
+
+        
+        if game["game_type"] == "Durak":
+            defender_index = (game["data"]["attacker"]+1) % len(game["players"])
+            defender = game["players"][defender_index]["player_id"]
+
+
+            if user.id == defender: # if defender passes he gets all the cards
+                draw(game["data"]["cards"], game["players"][defender_index]["hand"], len(game["data"]["cards"]), user.id)
+                game["data"]["attacker"] = (defender_index+1) % len(game["players"])
+            
+            if len([True if get_key(x.emoji, EMOJI) == "pass" else False for x in reaction.message.reactions]) >= len(game["players"])-1 and :
+                game["data"]["cards"] = []
+                game["data"]["attacker"] = defender_index
+        
+
+        
+
 
 
 
 # --------------------------------------------------------------------
 
-def get_key(value, dictionary): # gets key by its value
-    for x in dictionary:
-        if dictionary[x] == value:
-            return x
+get_key = lambda value, dictionary : list(filter(lambda a: a != None, [x if dictionary[x] == value else None for x in dictionary] ))[0]
+
 
 def sort(cards):
     cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.value)
