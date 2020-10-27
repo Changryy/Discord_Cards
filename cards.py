@@ -23,41 +23,35 @@ CARDS = ["0","Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King","A
 cards_by_id = {}
 
 class Card:
-    def __init__(self, val, suit, game_id):
-        self.val = val
+    def __init__(self, value, suit, game_id):
+        self.value = value
         self.suit = suit
-        self.name = CARDS[val]
+        self.name = CARDS[value]
         self.game_id = game_id
         self.deck = None
         self.wielder = None
 
     def __str__(self):
         return "card"
-    
-    def value(self):
-        return (self.val, self.suit, self.name)
-    
+        
     def display(self):
         return self.name + " of " + self.suit
 
-    def __getitem__(self, key):
-        return self.value()[key]
-
     def __gt__(self, other):
-        if type(other) is Card: return self.val > other.val
-        else: return self.val > other
+        if type(other) is Card: return self.value > other.value
+        else: return self.value > other
     
     def __ls__(self, other):
-        if type(other) is Card: return self.val < other.val
-        else: return self.val < other
+        if type(other) is Card: return self.value < other.value
+        else: return self.value < other
 
     def __eq__(self, other):
-        if type(other) is Card: return self.val == other.val
-        else: return self.val == other
+        if type(other) is Card: return self.value == other.value
+        else: return self.value == other
     
     def __ne__(self, other):
-        if type(other) is Card: return self.val != other.val
-        else: return self.val != other
+        if type(other) is Card: return self.value != other.value
+        else: return self.value != other
 
 # --------------------------------------------------------------------
 
@@ -118,7 +112,7 @@ async def on_message(message):
         new_game["channel_id"] = message.channel.id
         new_game["game_type"] = "Durak"
         new_game["deck"] = build_deck("Durak", game_id)
-        new_game["data"] = {"trump":"","attacker":0,"cards":[],"attack_card":None}
+        new_game["data"] = {"trump":"","attacker":None,"cards":[],"attack_card":None}
         new_game["players"] = [{"player_id":user.id,"player_name":user.display_name,"hand":[]}]
         games.append(new_game)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
@@ -187,6 +181,7 @@ async def on_reaction_add(reaction, user):
     global games
     global cards_by_id
     command = get_key(reaction.emoji, EMOJI)
+    channel = reaction.message.channel
     if user == client.user: return
 
     if command == "use":
@@ -195,8 +190,36 @@ async def on_reaction_add(reaction, user):
         
         
         if game["game_type"] == "Durak":
-            if game["data"]["attacker"] == card.wielder:
-                pass
+            defender = None
+            if not game["info"]["attacker"] is None:
+                defender = game["players"][ (game["players"].index(game["data"]["attacker"])+1) % len(game["players"]) ]
+
+
+            if len(game["data"]["cards"])%2 == 0 and card.wielder != defender: # attacker code
+                
+                if len(game["data"]["cards"]) >= 11: # send error if an attacker tries to attack with a 7th card
+                    await channel.send("Cannot attack with more than 6 cards in a bout.")
+                    return
+
+                if card.wielder == game["data"]["attacker"]: # main attacker
+                    insert(card, game["data"]["cards"])
+                    game["data"]["attack_card"] = card
+                
+                elif len(game["data"]["cards"]) > 0: # other attackers
+                    insert(card, game["data"]["cards"])
+                    game["data"]["attack_card"] = card
+    
+
+            elif len(game["data"]["cards"])%2 == 1 and card.wielder == defender: # defender code
+                
+                if card.suit == game["data"]["cards"][-1].suit and card > game["data"]["cards"][-1]: # defend if same suit and card is greater
+                    insert(card, game["data"]["cards"])
+                elif card.suit == game["data"]["trump"] and card > game["data"]["cards"][-1]: # defend if trump and card is greater 
+                    insert(card, game["data"]["cards"])
+                else:
+                    await channel.send("Invalid card.")
+
+
 
 # --------------------------------------------------------------------
 
@@ -206,7 +229,7 @@ def get_key(value, dictionary): # gets key by its value
             return x
 
 def sort(cards):
-    cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.val)
+    cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.value)
 
 def build_deck(game_type, game_id):
     deck = []
@@ -225,7 +248,10 @@ def draw(from_deck, to_deck, amount, player_id=None):
         card.wielder = player_id
         to_deck.append(card)
 
-
+def insert(card, deck):
+    card.deck.remove(card)
+    card.deck = deck
+    deck.append(card)
 
 
 client.run(token)
