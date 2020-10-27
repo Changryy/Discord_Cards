@@ -173,6 +173,11 @@ async def on_message(message):
                     async for msg_item in message.channel.history(limit=len(p["hand"])+1):
                         if msg_item.author == client.user:
                             await msg_item.delete()
+                    sort(p["hand"])
+                    for card in p["hand"]:
+                        bot_msg = await message.channel.send(card.display())
+                        await bot_msg.add_reaction(EMOJI["use"])
+
 
 
 # --------------------------------------------------------------------
