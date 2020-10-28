@@ -387,15 +387,15 @@ def draw(from_deck, to_deck, amount, player_id=None):
     global cards_by_id
     for _ in range(amount):
         ## all cards in a deck should be owned by same player
-        assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
-        assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
+        #assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
+        #assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
         card = from_deck.pop()
         card.deck = to_deck
         card.wielder = player_id
         to_deck.append(card)
         ## all cards in a deck should be owned by same player
-        assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
-        assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
+        #assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
+        #assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
 
 def insert(card, deck):
     card.deck.remove(card)
