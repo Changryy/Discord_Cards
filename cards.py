@@ -78,6 +78,7 @@ async def on_ready():
 
 # --------------------------------------------------------------------
 
+
 @client.event
 async def on_message(message):
     #info
@@ -99,28 +100,11 @@ async def on_message(message):
     # COMMANDS #
 
     if msg == ".durak":
-        # errors #
         if not game is None:
-            await message.channel.send("A game has already started in this channel.")
-            return
-        # errors #
-
-        game_id = len(games)
-        new_game = {
-            "owner_id" : user.id,
-            "channel_id" : message.channel.id,
-            "game_type" : "Durak",
-            "start_time" : None,
-            "deck" : build_deck("Durak", game_id),
-            "trump" : None,
-            "trump_in_deck": True,
-            "attacker" : 0,
-            "cards" : [],
-            "attack_card" : None,
-            "players" : [{"player_id":user.id,"player_name":user.display_name,"hand":[],"skipped":False}]
-        }
-        games.append(new_game)
-        await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
+            await message.channel.send("A game has already been started in this channel.")
+        else:
+            game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id)
+            await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
         # errors #
@@ -368,6 +352,26 @@ get_key = lambda value, dictionary : list(filter(lambda a: a != None, [x if dict
 
 def sort(cards):
     cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.value)
+
+def create_durak_game(user_id, user_name, channel_id):
+    global games
+    
+    game_id = len(games)
+    new_game = {
+        "owner_id" : user_id,
+        "channel_id" : channel_id,
+        "game_type" : "Durak",
+        "start_time" : None,
+        "deck" : build_deck("Durak", game_id),
+        "trump" : None,
+        "trump_in_deck": True,
+        "attacker" : 0,
+        "cards" : [],
+        "attack_card" : None,
+        "players" : [{"player_id":user_id,"player_name":user_name,"hand":[],"skipped":False}]
+    }
+    games.append(new_game)
+    return new_game
 
 def build_deck(game_type, game_id):
     deck = []
