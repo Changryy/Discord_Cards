@@ -10,7 +10,7 @@ from datetime import datetime
 
 # --------------------------------------------------------------------
 
-token = ""
+token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.3G5FbghV9RIf0i_fhXyT8MkaH3o"
 client = discord.Client()
 
 VERSION = "0.0.0"
@@ -247,7 +247,6 @@ async def on_reaction_add(reaction, user):
                     await durak_push_cards(game)
 
 
-
     elif command == "pick_up":
         try:
             card = cards_by_id[reaction.message.id]
@@ -283,7 +282,7 @@ async def on_reaction_add(reaction, user):
             async for u in reaction.users(): skipped_users.append(u.id)
             for p in game["players"]:
                 if p["player_id"] == user.id: p["skipped"] = True
-                elif p["skipped"] and p["player_id"] in skipped_users: p["skipped"] = False
+                elif p["skipped"] and (p["player_id"] not in skipped_users): p["skipped"] = False
 
             if next_durak_bout(game): # NEXT TURN
                 await channel.send("*Attackers gave up.*"+durak_turn_msg(game))
