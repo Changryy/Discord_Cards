@@ -35,7 +35,8 @@ class Card:
         return "card"
         
     def display(self):
-        return self.name + " of " + self.suit
+        if self.value == 10: return "10" + self.suit[0]
+        else: return self.name[0] + self.suit[0]
 
     def __gt__(self, other):
         if type(other) is Card: return self.value > other.value
@@ -59,7 +60,8 @@ games = []
 
 EMOJI = {
     "use":"⤴️",
-    "skip":"⏩"
+    "skip":"⏩",
+    "pick_up":"↩️"
 }
 
 # --------------------------------------------------------------------
@@ -120,7 +122,7 @@ async def on_message(message):
         if game is None:
             await message.channel.send("There are no ongoing games in this channel.")
             return
-        if game["start_time"] != None: # return error if game has already started
+        if not game["start_time"] is None: # return error if game has already started
             await message.channel.send("Game has already started.")
             return
         if True in [True if user.id == x["player_id"] else False for x in game["players"]]:
@@ -130,13 +132,13 @@ async def on_message(message):
 
         game["players"].append({"player_id":user.id,"player_name":user.display_name,"hand":[],"skipped":False})
         await message.channel.send(f"{user.display_name} joined the game!")
-    
+
     if msg == ".start":
         # errors #
         if game is None:
             await message.channel.send("There are no pending games in this channel.")
             return
-        if game["start_time"] != None: # return error if game has already started
+        if not game["start_time"] is None: # return error if game has already started
             await message.channel.send("Game has already started.")
             return
         if game["owner_id"] != user.id:
@@ -158,14 +160,14 @@ async def on_message(message):
 
             trump = game["deck"].pop() # assign trump
             game["trump"] = trump
-            await message.channel.send(f"{trump.suit} is trump!\n{trump.display()}")
+            await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
             for p in game["players"]: # deal cards
                 draw(game["deck"], p["hand"], 6, p["player_id"])
-                await user.create_dm()
+                await client.get_user(p["player_id"]).create_dm()
                 sort(p["hand"])
                 for card in [x for x in p["hand"]]:
-                    await send_card(card,user.dm_channel,[EMOJI["use"]])
-            
+                    await send_card(card,client.get_user(p["player_id"]).dm_channel,[EMOJI["use"]])
+
             await message.channel.send(durak_turn_msg(game)[1:])
 
     if msg in ["s",".s","sort",".sort"] and msgtype == "private":
@@ -200,7 +202,6 @@ async def on_reaction_add(reaction, user):
             game = games[card.game_id]
         except: return
     
-        await reaction.message.delete()
         
         if game["game_type"] == "Durak":
             defender = game["players"][ (game["attacker"]+1) % len(game["players"]) ]["player_id"]
@@ -213,23 +214,28 @@ async def on_reaction_add(reaction, user):
                     return
 
                 if card.wielder == game["players"][game["attacker"]]["player_id"] and len(game["cards"]) == 0: # main attack
+                    await reaction.message.delete()
                     insert(card, game["cards"])
-                    await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["skip"]])
+                    await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["pick_up"]])
                     game["attack_card"] = card
                 
-                elif len(game["cards"]) > 0: # other attacks
+                elif len(game["cards"]) > 0 and card.value in [x.value for x in game["cards"]]: # other attacks
+                    await reaction.message.delete()
                     insert(card, game["cards"])
-                    await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["skip"]])
+                    await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["pick_up"]])
                     game["attack_card"] = card
     
+
 
             elif len(game["cards"])%2 == 1 and card.wielder == defender: # defender code
                 
                 if card.suit == game["cards"][-1].suit and card > game["cards"][-1]: # defend if same suit and card is greater
+                    await reaction.message.delete()
                     insert(card, game["cards"])
                     await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["skip"]])
 
-                elif card.suit == game["trump"].suit and card > game["cards"][-1]: # defend if trump and card is greater 
+                elif card.suit == game["trump"].suit: # defend if trump 
+                    await reaction.message.delete()
                     insert(card, game["cards"])
                     await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["skip"]])
 
@@ -238,62 +244,64 @@ async def on_reaction_add(reaction, user):
                 
                 if next_durak_bout(game): # NEXT TURN
                     await client.get_channel(game["channel_id"]).send("*Attackers gave up.*"+durak_turn_msg(game))
-                    for p in game["players"]:
-                        if True in [True if card.wielder == None else False for card in p["hand"]]:
-                            card.wielder = p["player_id"]
-                            await send_card(card,client.get_channel(game["channel_id"]),[EMOJI["skip"]])
-            
+                    await durak_push_cards(game)
 
 
-    elif command == "skip":
+
+    elif command == "pick_up":
         try:
+            card = cards_by_id[reaction.message.id]
             game = list(filter(lambda a: a != None, [x if x["channel_id"] == channel.id else None for x in games] ))[0]
         except: return
-        if not user.id in [x["player_id"] for x in game["players"]]: return
+        if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        
+
         if game["game_type"] == "Durak":
             defender_index = (game["attacker"]+1) % len(game["players"])
             defender = game["players"][defender_index]["player_id"]
 
-
-            if user.id == defender: # if defender skips he gets all the cards  # NEXT TURN
-                draw(game["cards"], game["players"][defender_index]["hand"], len(game["cards"]), user.id)
+            if user.id == defender and len(game["cards"])%2 == 1: # defender picks up all the cards  # NEXT TURN
+                draw(game["cards"], game["players"][defender_index]["hand"], len(game["cards"]))
                 game["attacker"] = (defender_index+1) % len(game["players"])
                 
                 durak_replenish(game, (defender_index-1) % len(game["players"]))
-                await channel.send("*"+user.display_name+"picked up all the cards.*"+durak_turn_msg(game))
-                for p in game["players"]:
-                    if True in [True if card.wielder == None else False for card in p["hand"]]:
-                        card.wielder = p["player_id"]
-                        bot_msg = await client.get_user(p["player_id"]).dm_channel.send(card.display())
-                        await bot_msg.add_reaction(EMOJI["use"])
+                await channel.send("*"+user.display_name+" picked up all the cards.*"+durak_turn_msg(game))
+                await durak_push_cards(game)
 
-            else: # player skip recognition
-                skipped_users = []
-                async for u in reaction.users(): skipped_users.append(u.id)
-                for p in game["players"]:
-                    if p["player_id"] == user.id: p["skipped"] = True
-                    elif p["skipped"] and p["player_id"] in skipped_users: p["skipped"] = False
 
-                if next_durak_bout(game): # NEXT TURN
-                    await channel.send("*Attackers gave up.*"+durak_turn_msg(game))
-                    for p in game["players"]:
-                        if True in [True if card.wielder == None else False for card in p["hand"]]:
-                            card.wielder = p["player_id"]
-                            send_card(card,client.get_user(p["player_id"]).dm_channel,[EMOJI["use"]])
+    elif command == "skip":
+        try:
+            card = cards_by_id[reaction.message.id]
+            game = list(filter(lambda a: a != None, [x if x["channel_id"] == channel.id else None for x in games] ))[0]
+        except: return
+        if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
+
+        
+        if game["game_type"] == "Durak":
+            # player skip recognition
+            skipped_users = []
+            async for u in reaction.users(): skipped_users.append(u.id)
+            for p in game["players"]:
+                if p["player_id"] == user.id: p["skipped"] = True
+                elif p["skipped"] and p["player_id"] in skipped_users: p["skipped"] = False
+
+            if next_durak_bout(game): # NEXT TURN
+                await channel.send("*Attackers gave up.*"+durak_turn_msg(game))
+                await durak_push_cards(game)
 
                 
         
 # --------------------------------------------------------------------
 
 def next_durak_bout(game): # next bout if everybody skipped and defender defended
-    if (not False in [x["skipped"] for x in game["players"]]) and len(game["cards"]) % 2 == 0:
-        attacker = game["attacker"]
+    attacker = game["attacker"]
+    defender = (attacker+1) % len(game["players"])
+    if (not False in [x["skipped"] if game["players"].index(x) == defender else True for x in game["players"]]) and len(game["cards"]) % 2 == 0:
         game["cards"] = []
-        game["attacker"] = (attacker+1) % len(game["players"])
+        game["attacker"] = defender
         durak_replenish(game, attacker)
-    return (not False in [x["skipped"] for x in game["players"]]) and len(game["cards"]) % 2 == 0
+        return True
+    return False
 
 def durak_replenish(game, attacker): # replenish cards
     d_cards = len(game["deck"])
@@ -330,8 +338,14 @@ def durak_turn_msg(game): # message at the end of the turn
         for p in game["players"]:
             p["player_name"] +" - "+ str(len(p["hand"])) + "\n"
     
-    return msg + "**" + a + "'s turn to attack" + d + "!**"
+    return msg + "**" + a + "'s turn to attack " + d + "!**"
 
+async def durak_push_cards(game):
+    for p in game["players"]:
+        for card in [x if x.wielder == None else None for x in p["hand"]]:
+            if card is None: continue
+            card.wielder = p["player_id"]
+            await send_card(card,client.get_user(p["player_id"]).dm_channel,[EMOJI["use"]])
 
 # --------------------------------------------------------------------
 
@@ -365,7 +379,7 @@ def insert(card, deck):
 
 async def send_card(card, channel, reactions):
     global cards_by_id
-    bot_msg = await channel.send(card.display())
+    bot_msg = await channel.send(file=discord.File(f"PNG/{card.display()}.png"))
     card.discord_id = bot_msg.id
     cards_by_id[card.discord_id] = card
     for emoji in reactions:
