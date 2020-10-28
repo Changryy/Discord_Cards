@@ -22,6 +22,11 @@ CARDS = ["0","Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King","A
 
 cards_by_id = {}
 
+def assert_(cond):
+    if not cond:
+        import pdb; pdb.set_trace()
+    assert(cond)
+
 class Card:
     def __init__(self, value, suit, game_id):
         self.value = value
@@ -193,12 +198,11 @@ async def on_reaction_add(reaction, user):
 
 
     # COMMANDS #
-
     if command == "use":
         try:
             card = cards_by_id[reaction.message.id]
             game = games[card.game_id]
-        except: return
+        except KeyError: return
     
         
         if game["game_type"] == "Durak":
@@ -250,7 +254,7 @@ async def on_reaction_add(reaction, user):
         try:
             card = cards_by_id[reaction.message.id]
             game = list(filter(lambda a: a != None, [x if x["channel_id"] == channel.id else None for x in games] ))[0]
-        except: return
+        except KeyError: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
 
@@ -378,10 +382,16 @@ def build_deck(game_type, game_id):
 def draw(from_deck, to_deck, amount, player_id=None):
     global cards_by_id
     for _ in range(amount):
+        ## all cards in a deck should be owned by same player
+        assert_(!to_deck || len(set([x.wielder for x in to_deck]))==1)
+        assert_(!from_deck || len(set([x.wielder for x in from_deck]))==1)
         card = from_deck.pop()
         card.deck = to_deck
         card.wielder = player_id
         to_deck.append(card)
+        ## all cards in a deck should be owned by same player
+        assert_(!to_deck || len(set([x.wielder for x in to_deck]))==1)
+        assert_(!from_deck || len(set([x.wielder for x in from_deck]))==1)
 
 def insert(card, deck):
     card.deck.remove(card)
