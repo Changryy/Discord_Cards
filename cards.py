@@ -386,6 +386,7 @@ def draw(from_deck, to_deck, amount, player_id=None):
 def insert(card, deck):
     card.deck.remove(card)
     card.deck = deck
+    card.wielder = None
     deck.append(card)
 
 async def send_card(card, channel, reactions):
