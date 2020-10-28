@@ -10,7 +10,7 @@ from datetime import datetime
 
 # --------------------------------------------------------------------
 
-token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.3G5FbghV9RIf0i_fhXyT8MkaH3o"
+token = ""
 client = discord.Client()
 
 VERSION = "0.0.0"
@@ -174,9 +174,7 @@ async def on_message(message):
         for x in games:
             for p in x["players"]:
                 if p["player_id"] == user.id:
-                    async for msg_item in message.channel.history(limit=len(p["hand"])+1):
-                        if msg_item.author == client.user:
-                            await msg_item.delete()
+                    await delete_client_messages(message.channel, len(p["hand"])+1)
                     sort(p["hand"])
                     for card in p["hand"]:
                         await send_card(card,message.channel,[EMOJI["use"]])
@@ -242,9 +240,10 @@ async def on_reaction_add(reaction, user):
                 else:
                     await channel.send("Invalid card.")
                 
-                if next_durak_bout(game): # NEXT TURN
-                    await client.get_channel(game["channel_id"]).send("*Attackers gave up.*"+durak_turn_msg(game))
+                if durak_skip(game): # NEXT TURN
+                    await next_durak_bout(game)
                     await durak_push_cards(game)
+                    await client.get_channel(game["channel_id"]).send("*Attackers gave up.*"+durak_turn_msg(game))
 
 
     elif command == "pick_up":
@@ -259,13 +258,17 @@ async def on_reaction_add(reaction, user):
             defender_index = (game["attacker"]+1) % len(game["players"])
             defender = game["players"][defender_index]["player_id"]
 
-            if user.id == defender and len(game["cards"])%2 == 1: # defender picks up all the cards  # NEXT TURN
+            #                                                     # NEXT TURN
+            if user.id == defender and len(game["cards"])%2 == 1: # defender picks up all the cards
+                await delete_client_messages(channel, len(game["cards"])+1)
+
                 draw(game["cards"], game["players"][defender_index]["hand"], len(game["cards"]))
                 game["attacker"] = (defender_index+1) % len(game["players"])
                 
                 durak_replenish(game, (defender_index-1) % len(game["players"]))
-                await channel.send("*"+user.display_name+" picked up all the cards.*"+durak_turn_msg(game))
                 await durak_push_cards(game)
+                await channel.send("*"+user.display_name+" picked up all the cards.*"+durak_turn_msg(game))
+                
 
 
     elif command == "skip":
@@ -284,23 +287,32 @@ async def on_reaction_add(reaction, user):
                 if p["player_id"] == user.id: p["skipped"] = True
                 elif p["skipped"] and (p["player_id"] not in skipped_users): p["skipped"] = False
 
-            if next_durak_bout(game): # NEXT TURN
-                await channel.send("*Attackers gave up.*"+durak_turn_msg(game))
+            if durak_skip(game): # NEXT TURN
+                await next_durak_bout(game)
                 await durak_push_cards(game)
+                await channel.send("*Attackers gave up.*"+durak_turn_msg(game))
 
                 
         
 # --------------------------------------------------------------------
 
-def next_durak_bout(game): # next bout if everybody skipped and defender defended
+async def delete_client_messages(channel, amount):
+    async for msg_item in channel.history(limit=amount):
+        if msg_item.author == client.user:
+            await msg_item.delete()
+
+def durak_skip(game):
     attacker = game["attacker"]
     defender = (attacker+1) % len(game["players"])
-    if (not False in [x["skipped"] if game["players"].index(x) == defender else True for x in game["players"]]) and len(game["cards"]) % 2 == 0:
-        game["cards"] = []
-        game["attacker"] = defender
-        durak_replenish(game, attacker)
-        return True
-    return False
+    return (not False in [True if game["players"].index(x) == defender else x["skipped"] for x in game["players"]]) and len(game["cards"]) % 2 == 0
+
+async def next_durak_bout(game): # next bout if everybody skipped and defender defended
+    attacker = game["attacker"]
+    defender = (attacker+1) % len(game["players"])
+    await delete_client_messages(client.get_channel(game["channel_id"]), len(game["cards"])+1)
+    game["cards"] = []
+    game["attacker"] = defender
+    durak_replenish(game, attacker)
 
 def durak_replenish(game, attacker): # replenish cards
     d_cards = len(game["deck"])
@@ -313,12 +325,12 @@ def durak_replenish(game, attacker): # replenish cards
     for p in players:
         p_cards = len(p["hand"])
         if 6-p_cards > d_cards: # if player needs more cards than the deck can offer
-            draw(game["deck"], p["hand"], d_cards, None)
-            draw([deepcopy(game["trump"])], p["hand"], 1, None)
+            draw(game["deck"], p["hand"], d_cards)
+            draw([deepcopy(game["trump"])], p["hand"], 1)
             game["trump_in_deck"] = False
             break
         else: # normal refill
-            draw(game["deck"], p["hand"], 6-p_cards, None)
+            draw(game["deck"], p["hand"], 6-p_cards)
     
 def durak_turn_msg(game): # message at the end of the turn
     a = game["players"][game["attacker"]]["player_name"]
