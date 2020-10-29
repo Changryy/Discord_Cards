@@ -80,3 +80,19 @@ def test_wrong_defence():
     second_card=game['players'][1]['hand'][0] ## Queen of diamond
     asyncio.run(game.use_card(first_card))
     assert_raises(cards.UserError, asyncio.run, game.use_card(second_card))
+
+def test_skip():
+    """
+    Game on, attacker skips to continue attacking
+    """
+    random.seed(2)
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+    first_card=game['players'][0]['hand'][0]
+    second_card=game['players'][1]['hand'][0]
+    assert_raises(cards.UserError, asyncio.run, game.use_card(second_card))
+    asyncio.run(game.use_card(first_card))
+    asyncio.run(game.use_card(second_card))
+    asyncio.run(game.skip([33]))
+    

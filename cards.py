@@ -40,6 +40,9 @@ class Game(dict):
     async def send_card(self, card, reactions, private=False, channel=None):
         print(f"sending card {card.display()} ... possible reactions: " + " ".join(reactions))
 
+    async def status_msg(self, message):
+        print(message)
+
     async def use_card(self, card, comm=None):
         if self["game_type"] == "Durak":
             defender = self["players"][ (self["attacker"]+1) % len(self["players"]) ]["player_id"]
@@ -105,16 +108,13 @@ class Game(dict):
                 await self.durak_push_cards()
                 await self.status_msg("*"+user.display_name+" picked up all the cards.*"+self.durak_turn_msg())
 
-    async def skip(self, user_id):
+    async def skip(self, user_ids):
         if self["game_type"] == "Durak":
             # player skip recognition
-            skipped_users = []
-            async for u in reaction.users(): skipped_users.append(u.id)
             for p in self["players"]:
-                if p["player_id"] == user.id: p["skipped"] = True
-                elif p["skipped"] and (p["player_id"] not in skipped_users): p["skipped"] = False
+                p["skipped"] = p["player_id"] in user_ids
 
-            if durak_skip(self): # NEXT TURN
+            if self.durak_skip(): # NEXT TURN
                 await self.next_durak_bout()
                 await self.durak_push_cards()
                 await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
@@ -129,7 +129,7 @@ class Game(dict):
     async def next_durak_bout(self): # next bout if everybody skipped and defender defended
         attacker = self["attacker"]
         defender = (attacker+1) % len(self["players"])
-        await self.client_next_durak_bout()
+        await self.client_delete_cards()
         self["cards"] = []
         self["attacker"] = defender
         self.durak_replenish(attacker)
@@ -137,7 +137,7 @@ class Game(dict):
     def durak_skip(self):
         attacker = self["attacker"]
         defender = (attacker+1) % len(self["players"])
-        return (not False in [True if self["players"].index(x) == defender else x["skipped"] for x in self["players"]]) and len(game["cards"]) % 2 == 0
+        return (not False in [True if self["players"].index(x) == defender else x["skipped"] for x in self["players"]]) and len(self["cards"]) % 2 == 0
 
     def durak_replenish(self, attacker): # replenish cards
         d_cards = len(self["deck"])
@@ -364,7 +364,7 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.skip(user_id)
+        await game.skip([user_id]+reaction.users())
         
 
                 
