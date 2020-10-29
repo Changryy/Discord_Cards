@@ -38,7 +38,8 @@ class Game(dict):
         pass
     
     async def send_card(self, card, reactions, private=False, channel=None):
-        print(f"sending card {card.display()} ... possible reactions: " + " ".join(reactions))
+        verb = "gets" if private else "plays"
+        print(f"{card.wielder} {verb} {card.display()} ... possible reactions: " + " ".join(reactions))
 
     async def status_msg(self, message):
         print(message)
@@ -59,14 +60,14 @@ class Game(dict):
 
                 if card.wielder == self["players"][self["attacker"]]["player_id"] and len(self["cards"]) == 0: # main attack
                     await self.client_delete_cards()
-                    insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["pick_up"]])
+                    insert(card, self["cards"])
                     self["attack_card"] = card
 
                 elif len(self["cards"]) > 0 and card.value in [x.value for x in self["cards"]]: # other attacks
                     await self.delete_card_at_client_side(comm)
-                    insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["pick_up"]])
+                    insert(card, self["cards"])
                     self["attack_card"] = card
 
                 else:
@@ -81,8 +82,8 @@ class Game(dict):
                         raise UserError("Invalid card - you must put same suit as the previous card, or trump")
                     
                 await self.delete_card_at_client_side(comm)
-                insert(card, self["cards"])
                 await self.send_card(card,[EMOJI["skip"]])
+                insert(card, self["cards"])
 
                 if self.durak_skip(): # NEXT TURN
                     await self.next_durak_bout()
@@ -118,9 +119,9 @@ class Game(dict):
                 p["skipped"] = p["player_id"] in user_ids
 
             if self.durak_skip(): # NEXT TURN
+                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
                 await self.next_durak_bout()
                 await self.durak_push_cards()
-                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
 
     async def durak_push_cards(self):
         for p in self["players"]:
