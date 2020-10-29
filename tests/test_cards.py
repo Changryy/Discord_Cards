@@ -17,4 +17,19 @@ def test_double_join():
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     assert_raises(cards.UserError, cards.join_player, game, 34, 'trump')
+    assert_raises(cards.UserError, cards.join_player, game, 33, 'tobixen')
+
+def test_start_game():
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+
+def test_join_started():
+    """
+    attempts to join a game that has already started should fail
+    """
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+    assert_raises(cards.UserError, cards.join_player, game, 35, 'biden')
 

@@ -84,6 +84,12 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
+    try:
+        await _on_message(message)
+    except UserError as err:
+        await message.channel.send(str(err))
+
+async def _on_message(message):
     #info
     global games
     global cards_by_id
@@ -103,61 +109,32 @@ async def on_message(message):
 
     if msg == ".durak":
         if not game is None:
-            await message.channel.send("A game has already been started in this channel.")
-        else:
-            game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id)
-            await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
+            raise UserError("A game has already been started in this channel.")
+
+        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id)
+        await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
         # errors #
         if game is None:
-            await message.channel.send("There are no ongoing games in this channel.")
-            return
+            raise UserError("There are no ongoing games in this channel.")
         
-        if True in [True if user.id == x["player_id"] else False for x in game["players"]]:
-            await message.channel.send("You are already in the game.")
-            return
-        # errors #
-
-        try:
-            join_player(game, user.id, user.display_name)
-            await message.channel.send(f"{user.display_name} joined the game!")
-        except UserError as err:
-            await message.channel.send(str(err))
-            return
+        join_player(game, user.id, user.display_name)
+        await message.channel.send(f"{user.display_name} joined the game!")
 
     if msg == ".start":
         # errors #
         if game is None:
-            await message.channel.send("There are no pending games in this channel.")
-            return
-        if not game["start_time"] is None: # return error if game has already started
-            await message.channel.send("Game has already started.")
-            return
+            raise UserError("There are no pending games in this channel.")
         if game["owner_id"] != user.id:
-            await message.channel.send("You are not the owner of this game.")
-            return
-        # errors #
+            raise UserError("You are not the owner of this game.")
 
-        game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
+        start_game(game)
 
         if game["game_type"] == "Durak":
-            # errors #
-            if len(game["players"]) == 1:
-                await message.channel.send("Game requires a minimum of 2 players.")
-                return
-            if len(game["players"]) > 5:
-                await message.channel.send("Game cannot exceed the player limit of 5.")
-                return
-            # errors #
-
-            trump = game["deck"].pop() # assign trump
-            game["trump"] = trump
             await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
-            for p in game["players"]: # deal cards
-                draw(game["deck"], p["hand"], 6, p["player_id"])
+            for p in game["players"]: # show cards dealt
                 await client.get_user(p["player_id"]).create_dm()
-                sort(p["hand"])
                 for card in [x for x in p["hand"]]:
                     await send_card(card,client.get_user(p["player_id"]).dm_channel,[EMOJI["use"]])
 
@@ -377,6 +354,24 @@ def create_durak_game(user_id, user_name, channel_id):
     games.append(new_game)
     join_player(new_game, user_id=user_id, user_name=user_name)
     return new_game
+
+def start_game(game):
+    if not game["start_time"] is None: # return error if game has already started
+        raise UserError("Game has already started.")
+    if game["game_type"] == "Durak":
+        # errors #
+        if len(game["players"]) == 1:
+            raise UserError("Game requires a minimum of 2 players.")
+        if len(game["players"]) > 5:
+            raise UserError("Game cannot exceed the player limit of 5.")
+
+        trump = game["deck"].pop() # assign trump
+        game["trump"] = trump
+        for p in game["players"]: # show cards dealt
+            draw(game["deck"], p["hand"], 6, p["player_id"])
+            sort(p["hand"])
+
+    game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
 
 def join_player(game, user_id, user_name):
     if game["start_time"] is not None:
