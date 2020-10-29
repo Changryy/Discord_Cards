@@ -34,10 +34,13 @@ class Game(dict):
     async def client_delete_cards(self):
         pass
 
+    async def delete_card_at_client_side(self, comm):
+        pass
+    
     async def send_card(self, card, reactions, private=False, channel=None):
-        print(f"sending card {str(card)} ... " + " ".join(reactions))
+        print(f"sending card {card.display()} ... possible reactions: " + " ".join(reactions))
 
-    async def use_card(self, card, comm):
+    async def use_card(self, card, comm=None):
         if self["game_type"] == "Durak":
             defender = self["players"][ (self["attacker"]+1) % len(self["players"]) ]["player_id"]
 
@@ -53,7 +56,7 @@ class Game(dict):
                     self["attack_card"] = card
 
                 elif len(self["cards"]) > 0 and card.value in [x.value for x in self["cards"]]: # other attacks
-                    await reaction.message.delete()
+                    await self.delete_card_at_client_side(comm)
                     insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["pick_up"]])
                     self["attack_card"] = card
@@ -61,12 +64,12 @@ class Game(dict):
             elif len(self["cards"])%2 == 1 and card.wielder == defender: # defender code
 
                 if card.suit == self["cards"][-1].suit and card > self["cards"][-1]: # defend if same suit and card is greater
-                    await reaction.message.delete()
+                    await self.delete_card_at_client_side(comm)
                     insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["skip"]])
 
                 elif card.suit == self["trump"].suit: # defend if trump 
-                    await reaction.message.delete()
+                    await self.delete_card_at_client_side(comm)
                     insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["skip"]])
 
@@ -175,7 +178,7 @@ class DiscordGame(Game):
     async def status_msg(self, message):
         self.client.get_channel(self["channel_id"]).send(message)
 
-    async def delete_card_at_client_side(comm):
+    async def delete_card_at_client_side(self, comm):
         await comm.message.delete()
 
     async def send_card(self, card, reactions, private=False, channel=None):

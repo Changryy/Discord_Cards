@@ -1,6 +1,9 @@
+import sys
+sys.path.append('..')
 import cards
 import asyncio
 from nose.tools import assert_raises
+import random
 
 def test_build_deck():
     deck = cards.build_deck("Durak", 1)
@@ -34,7 +37,7 @@ def test_join_started():
     cards.start_game(game)
     assert_raises(cards.UserError, cards.join_player, game, 35, 'biden')
 
-def test_use_card():
+def test_use_first_card():
     """
     first player should use a card
     """
@@ -42,5 +45,31 @@ def test_use_card():
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
     first_card=game['players'][0]['hand'][0]
-    first_player=game['players'][0]['player_id']
+    first_player=33
     asyncio.run(game.use_card(first_card, first_player))
+
+def test_wrong_order():
+    """
+    first player should use a card
+    """
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+    first_card=game['players'][0]['hand'][0]
+    second_player=34
+    asyncio.run(game.use_card(first_card, second_player))
+
+def test_defence():
+    """
+    we fix the randomizer and try to move some cards
+    """
+    random.seed(1)
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+    first_card=game['players'][0]['hand'][0]
+    first_player=33
+    second_card=game['players'][1]['hand'][0]
+    second_player=34
+    asyncio.run(game.use_card(first_card))
+    asyncio.run(game.use_card(second_card))
