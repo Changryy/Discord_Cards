@@ -66,20 +66,20 @@ class Game(dict):
                     await self.send_card(card,[EMOJI["pick_up"]])
                     self["attack_card"] = card
 
+                else:
+                    raise UserError("It's not your turn to attack")
+
             elif len(self["cards"])%2 == 1 and card.wielder == defender: # defender code
 
-                if card.suit == self["cards"][-1].suit and card > self["cards"][-1]: # defend if same suit and card is greater
-                    await self.delete_card_at_client_side(comm)
-                    insert(card, self["cards"])
-                    await self.send_card(card,[EMOJI["skip"]])
-
-                elif card.suit == self["trump"].suit: # defend if trump 
-                    await self.delete_card_at_client_side(comm)
-                    insert(card, self["cards"])
-                    await self.send_card(card,[EMOJI["skip"]])
-
-                else:
-                    raise UserError("Invalid card.")
+                if card.suit == self["cards"][-1].suit:
+                    if card < self["cards"][-1]: 
+                        raise UserError("Invalid card - you must put higher than the previous card")                        
+                elif card.suit != self["trump"].suit:
+                        raise UserError("Invalid card - you must put same suit as the previous card, or trump")
+                    
+                await self.delete_card_at_client_side(comm)
+                insert(card, self["cards"])
+                await self.send_card(card,[EMOJI["skip"]])
 
                 if self.durak_skip(): # NEXT TURN
                     await self.next_durak_bout()

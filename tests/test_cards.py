@@ -39,9 +39,8 @@ def test_join_started():
 
 def test_use_first_card():
     """
-    first player should use a card
+    The game creator should start attacking
     """
-    random.seed(1)
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
@@ -50,34 +49,34 @@ def test_use_first_card():
 
 def test_wrong_order():
     """
-    first player should use a card
+    Attempts to play out of order should fail
     """
-    random.seed(1)
+    random.seed(2)
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
     first_card=game['players'][0]['hand'][0]
     second_card=game['players'][1]['hand'][0]
-    ## out of turn
+    ## Second card belongs to second player, first player has to start the turn
     assert_raises(cards.UserError, asyncio.run, game.use_card(second_card))
+    ## This is OK
     asyncio.run(game.use_card(first_card))
-    ## out of turn, and card has already been played
+    ## This is not OK, defender should play, and card has already been played
     assert_raises(cards.UserError, asyncio.run, game.use_card(first_card))
+    ## With the given random seed, this works fine
     asyncio.run(game.use_card(second_card))
-    ## card has already been played
+    ## card has already been played, an error should be raised
     assert_raises(cards.UserError, asyncio.run, game.use_card(first_card))
 
-def test_defence():
+def test_wrong_defence():
     """
-    we fix the randomizer and try to move some cards
+    The card played has to be higher and of the same order or trump
     """
     random.seed(1)
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
-    first_card=game['players'][0]['hand'][0]
-    first_player=33
-    second_card=game['players'][1]['hand'][0]
-    second_player=34
+    first_card=game['players'][0]['hand'][0] ## King of diamond (trump)
+    second_card=game['players'][1]['hand'][0] ## Queen of diamond
     asyncio.run(game.use_card(first_card))
-    asyncio.run(game.use_card(second_card))
+    assert_raises(cards.UserError, asyncio.run, game.use_card(second_card))
