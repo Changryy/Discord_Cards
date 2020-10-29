@@ -132,6 +132,7 @@ async def _on_message(message):
         start_game(game)
 
         if game["game_type"] == "Durak":
+            trump = game['trump']
             await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
             for p in game["players"]: # show cards dealt
                 await client.get_user(p["player_id"]).create_dm()
