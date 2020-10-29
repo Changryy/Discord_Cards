@@ -22,6 +22,14 @@ CARDS = ["0","Ace","2","3","4","5","6","7","8","9","10","Jack","Queen","King","A
 
 cards_by_id = {}
 
+def assert_(cond):
+    if not cond:
+        import pdb; pdb.set_trace()
+    assert(cond)
+
+class UserError(Exception):
+    pass
+
 class Card:
     def __init__(self, value, suit, game_id):
         self.value = value
@@ -73,8 +81,15 @@ async def on_ready():
 
 # --------------------------------------------------------------------
 
+
 @client.event
 async def on_message(message):
+    try:
+        await _on_message(message)
+    except UserError as err:
+        await message.channel.send(str(err))
+
+async def _on_message(message):
     #info
     global games
     global cards_by_id
@@ -90,81 +105,36 @@ async def on_message(message):
         if x["channel_id"] == message.channel.id:
             game = x
 
-
     # COMMANDS #
 
     if msg == ".durak":
-        # errors #
         if not game is None:
-            await message.channel.send("A game has already started in this channel.")
-            return
-        # errors #
+            raise UserError("A game has already been started in this channel.")
 
-        game_id = len(games)
-        new_game = {
-            "owner_id" : user.id,
-            "channel_id" : message.channel.id,
-            "game_type" : "Durak",
-            "start_time" : None,
-            "deck" : build_deck("Durak", game_id),
-            "trump" : None,
-            "trump_in_deck": True,
-            "attacker" : 0,
-            "cards" : [],
-            "attack_card" : None,
-            "players" : [{"player_id":user.id,"player_name":user.display_name,"hand":[],"skipped":False}]
-        }
-        games.append(new_game)
+        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
         # errors #
         if game is None:
-            await message.channel.send("There are no ongoing games in this channel.")
-            return
-        if not game["start_time"] is None: # return error if game has already started
-            await message.channel.send("Game has already started.")
-            return
-        if True in [True if user.id == x["player_id"] else False for x in game["players"]]:
-            await message.channel.send("You are already in the game.")
-            return
-        # errors #
-
-        game["players"].append({"player_id":user.id,"player_name":user.display_name,"hand":[],"skipped":False})
+            raise UserError("There are no ongoing games in this channel.")
+        
+        join_player(game, user.id, user.display_name)
         await message.channel.send(f"{user.display_name} joined the game!")
 
     if msg == ".start":
         # errors #
         if game is None:
-            await message.channel.send("There are no pending games in this channel.")
-            return
-        if not game["start_time"] is None: # return error if game has already started
-            await message.channel.send("Game has already started.")
-            return
+            raise UserError("There are no pending games in this channel.")
         if game["owner_id"] != user.id:
-            await message.channel.send("You are not the owner of this game.")
-            return
-        # errors #
+            raise UserError("You are not the owner of this game.")
 
-        game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
+        start_game(game)
 
         if game["game_type"] == "Durak":
-            # errors #
-            if len(game["players"]) == 1:
-                await message.channel.send("Game requires a minimum of 2 players.")
-                return
-            if len(game["players"]) > 5:
-                await message.channel.send("Game cannot exceed the player limit of 5.")
-                return
-            # errors #
-
-            trump = game["deck"].pop() # assign trump
-            game["trump"] = trump
             await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
-            for p in game["players"]: # deal cards
-                draw(game["deck"], p["hand"], 6, p["player_id"])
+            for p in game["players"]: # show cards dealt
                 await client.get_user(p["player_id"]).create_dm()
-                sort(p["hand"])
                 for card in [x for x in p["hand"]]:
                     await send_card(card,client.get_user(p["player_id"]).dm_channel,[EMOJI["use"]])
 
@@ -193,12 +163,11 @@ async def on_reaction_add(reaction, user):
 
 
     # COMMANDS #
-
     if command == "use":
         try:
             card = cards_by_id[reaction.message.id]
             game = games[card.game_id]
-        except: return
+        except KeyError: return
     
         
         if game["game_type"] == "Durak":
@@ -250,7 +219,7 @@ async def on_reaction_add(reaction, user):
         try:
             card = cards_by_id[reaction.message.id]
             game = list(filter(lambda a: a != None, [x if x["channel_id"] == channel.id else None for x in games] ))[0]
-        except: return
+        except KeyError: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
 
@@ -365,6 +334,52 @@ get_key = lambda value, dictionary : list(filter(lambda a: a != None, [x if dict
 def sort(cards):
     cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.value)
 
+def create_durak_game(user_id, user_name, channel_id):
+    global games
+    
+    game_id = len(games)
+    new_game = {
+        "owner_id" : user_id,
+        "channel_id" : channel_id,
+        "game_type" : "Durak",
+        "start_time" : None,
+        "deck" : build_deck("Durak", game_id),
+        "trump" : None,
+        "trump_in_deck": True,
+        "attacker" : 0,
+        "cards" : [],
+        "attack_card" : None,
+        "players" : []
+    }
+    games.append(new_game)
+    join_player(new_game, user_id=user_id, user_name=user_name)
+    return new_game
+
+def start_game(game):
+    if not game["start_time"] is None: # return error if game has already started
+        raise UserError("Game has already started.")
+    if game["game_type"] == "Durak":
+        # errors #
+        if len(game["players"]) == 1:
+            raise UserError("Game requires a minimum of 2 players.")
+        if len(game["players"]) > 5:
+            raise UserError("Game cannot exceed the player limit of 5.")
+
+        trump = game["deck"].pop() # assign trump
+        game["trump"] = trump
+        for p in game["players"]: # show cards dealt
+            draw(game["deck"], p["hand"], 6, p["player_id"])
+            sort(p["hand"])
+
+    game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
+
+def join_player(game, user_id, user_name):
+    if game["start_time"] is not None:
+        raise UserError("You cannot join to a game that has already started")
+    if user_id in [x["player_id"] for x in game["players"]]:
+        raise UserError("You are already in the game")
+    game["players"].append({"player_id":user_id,"player_name":user_name,"hand":[],"skipped":False})
+
 def build_deck(game_type, game_id):
     deck = []
     if game_type == "Durak" or game_type == "standard":
@@ -378,10 +393,16 @@ def build_deck(game_type, game_id):
 def draw(from_deck, to_deck, amount, player_id=None):
     global cards_by_id
     for _ in range(amount):
+        ## all cards in a deck should be owned by same player
+        #assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
+        #assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
         card = from_deck.pop()
         card.deck = to_deck
         card.wielder = player_id
         to_deck.append(card)
+        ## all cards in a deck should be owned by same player
+        #assert_(not to_deck or len(set([x.wielder for x in to_deck]))==1)
+        #assert_(not from_deck or len(set([x.wielder for x in from_deck]))==1)
 
 def insert(card, deck):
     card.deck.remove(card)
@@ -399,5 +420,6 @@ async def send_card(card, channel, reactions):
 
 # --------------------------------------------------------------------
 
-client.run(token)
+if __name__ == '__main__':
+    client.run(token)
 
