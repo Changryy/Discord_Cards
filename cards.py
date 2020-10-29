@@ -27,6 +27,9 @@ def assert_(cond):
         import pdb; pdb.set_trace()
     assert(cond)
 
+class UserError(Exception):
+    pass
+
 class Card:
     def __init__(self, value, suit, game_id):
         self.value = value
@@ -96,7 +99,6 @@ async def on_message(message):
         if x["channel_id"] == message.channel.id:
             game = x
 
-
     # COMMANDS #
 
     if msg == ".durak":
@@ -111,16 +113,18 @@ async def on_message(message):
         if game is None:
             await message.channel.send("There are no ongoing games in this channel.")
             return
-        if not game["start_time"] is None: # return error if game has already started
-            await message.channel.send("Game has already started.")
-            return
+        
         if True in [True if user.id == x["player_id"] else False for x in game["players"]]:
             await message.channel.send("You are already in the game.")
             return
         # errors #
 
-        game["players"].append({"player_id":user.id,"player_name":user.display_name,"hand":[],"skipped":False})
-        await message.channel.send(f"{user.display_name} joined the game!")
+        try:
+            join_player(game, user.id, user.display_name)
+            await message.channel.send(f"{user.display_name} joined the game!")
+        except UserError as err:
+            await message.channel.send(str(err))
+            return
 
     if msg == ".start":
         # errors #
@@ -368,10 +372,18 @@ def create_durak_game(user_id, user_name, channel_id):
         "attacker" : 0,
         "cards" : [],
         "attack_card" : None,
-        "players" : [{"player_id":user_id,"player_name":user_name,"hand":[],"skipped":False}]
+        "players" : []
     }
     games.append(new_game)
+    join_player(new_game, user_id=user_id, user_name=user_name)
     return new_game
+
+def join_player(game, user_id, user_name):
+    if game["start_time"] is not None:
+        raise UserError("You cannot join to a game that has already started")
+    if user_id in [x["player_id"] for x in game["players"]]:
+        raise UserError("You are already in the game")
+    game["players"].append({"player_id":user_id,"player_name":user_name,"hand":[],"skipped":False})
 
 def build_deck(game_type, game_id):
     deck = []
