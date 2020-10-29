@@ -92,7 +92,7 @@ class Game(dict):
                 ## we should not be here?
                 assert(False)
 
-    async def pick_up(self, user_id, card):
+    async def pick_up(self, user_id):
         if self["game_type"] == "Durak":
             defender_index = (self["attacker"]+1) % len(self["players"])
             defender = self["players"][defender_index]["player_id"]
@@ -104,9 +104,12 @@ class Game(dict):
                 draw(self["cards"], self["players"][defender_index]["hand"], len(self["cards"]))
                 self["attacker"] = (defender_index+1) % len(self["players"])
                 
-                await self.durak_replenish((defender_index-1) % len(self["players"]))
+                self.durak_replenish((defender_index-1) % len(self["players"]))
                 await self.durak_push_cards()
-                await self.status_msg("*"+user.display_name+" picked up all the cards.*"+self.durak_turn_msg())
+                username = [x['player_name'] for x in self['players'] if x['player_id'] == user_id][0]
+                await self.status_msg(f"*{username} picked up all the cards.*"+self.durak_turn_msg())
+            else:
+                raise UserError("Invalid move, only defender can pick up cards, and only on defenders turn")
 
     async def skip(self, user_ids):
         if self["game_type"] == "Durak":
@@ -356,7 +359,7 @@ async def on_reaction_add_(reaction, user):
         except KeyError: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.pick_up(user.id, card)
+        await game.pick_up(user.id)
 
     elif command == "skip":
         try:
