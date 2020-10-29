@@ -1,4 +1,5 @@
 import cards
+import asyncio
 from nose.tools import assert_raises
 
 def test_build_deck():
@@ -33,3 +34,13 @@ def test_join_started():
     cards.start_game(game)
     assert_raises(cards.UserError, cards.join_player, game, 35, 'biden')
 
+def test_use_card():
+    """
+    first player should use a card
+    """
+    game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
+    cards.join_player(game, 34, 'trump')
+    cards.start_game(game)
+    first_card=game['players'][0]['hand'][0]
+    first_player=game['players'][0]['player_id']
+    asyncio.run(game.use_card(first_card, first_player))
