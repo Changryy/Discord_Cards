@@ -44,6 +44,11 @@ class Game(dict):
         if self["game_type"] == "Durak":
             defender = self["players"][ (self["attacker"]+1) % len(self["players"]) ]["player_id"]
 
+            if not card.wielder:
+                raise UserError("Card has already been played")
+            if bool(len(self["cards"])%2) != bool(card.wielder == defender):
+                raise UserError("It's not your turn to play")
+            
             if len(self["cards"])%2 == 0 and card.wielder != defender: # attacker code
 
                 if len(self["cards"]) >= 11: # send error if an attacker tries to attack with a 7th card
@@ -80,6 +85,9 @@ class Game(dict):
                     await self.next_durak_bout()
                     await self.durak_push_cards()
                     await self.status_msg("*Attackers gave up.*"+durak_turn_msg(self))
+            else:
+                ## we should not be here?
+                assert(False)
 
     async def pick_up(self, user_id, card):
         if self["game_type"] == "Durak":

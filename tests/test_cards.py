@@ -41,23 +41,31 @@ def test_use_first_card():
     """
     first player should use a card
     """
+    random.seed(1)
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
     first_card=game['players'][0]['hand'][0]
-    first_player=33
-    asyncio.run(game.use_card(first_card, first_player))
+    asyncio.run(game.use_card(first_card))
 
 def test_wrong_order():
     """
     first player should use a card
     """
+    random.seed(1)
     game = cards.create_durak_game(user_id=33, user_name='tobixen', channel_id=34)
     cards.join_player(game, 34, 'trump')
     cards.start_game(game)
     first_card=game['players'][0]['hand'][0]
-    second_player=34
-    asyncio.run(game.use_card(first_card, second_player))
+    second_card=game['players'][1]['hand'][0]
+    ## out of turn
+    assert_raises(cards.UserError, asyncio.run, game.use_card(second_card))
+    asyncio.run(game.use_card(first_card))
+    ## out of turn, and card has already been played
+    assert_raises(cards.UserError, asyncio.run, game.use_card(first_card))
+    asyncio.run(game.use_card(second_card))
+    ## card has already been played
+    assert_raises(cards.UserError, asyncio.run, game.use_card(first_card))
 
 def test_defence():
     """
