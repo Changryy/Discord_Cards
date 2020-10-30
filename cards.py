@@ -150,6 +150,9 @@ class Game(dict):
         players = [self["players"][attacker]] # attacker
         players += [self["players"][(x+attacker+2)%p_count] for x in range(p_count-2)] # other attackers
         players.append(self["players"][(attacker-1)%p_count]) # defender
+        assert_(len(players) == len(self['players']))
+        assert_(len(set([x['player_id'] for x in players])) == len(players))
+        assert_(set([x['player_id'] for x in players]) == set([x['player_id'] for x in self['players']]))
 
         for p in players:
             p_cards = len(p["hand"])
