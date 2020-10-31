@@ -176,6 +176,7 @@ def test_longer_game():
     asyncio.run(game.use_card(hands[2][2]))
     asyncio.run(game.use_card(hands[1][3]))
     print_hands()
+    assert(not 'KC' in [x.display() for x in game['deck']])
     asyncio.run(game.skip([33,35]))
     
     ## Card KC has been thrown and should be nowhere to be found
