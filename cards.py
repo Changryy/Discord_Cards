@@ -102,7 +102,7 @@ class Game(dict):
 
             #                                                     # NEXT TURN
             if user_id == defender and len(self["cards"])%2 == 1: # defender picks up all the cards
-                self.client_delete_cards()
+                await self.client_delete_cards()
 
                 draw(self["cards"], self["players"][defender_index]["hand"], len(self["cards"]))
                 self["attacker"] = (defender_index+1) % len(self["players"])
@@ -114,7 +114,7 @@ class Game(dict):
             else:
                 raise UserError("Invalid move, only defender can pick up cards, and only on defenders turn")
 
-    def skip(self, user_ids):
+    async def skip(self, user_ids):
         if self["game_type"] == "Durak":
             # player skip recognition
             for p in self["players"]:
