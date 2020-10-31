@@ -59,7 +59,7 @@ class Game(dict):
                     raise UserError("Cannot attack with more than 6 cards in a bout.")
 
                 if card.wielder == self["players"][self["attacker"]]["player_id"] and len(self["cards"]) == 0: # main attack
-                    await self.client_delete_cards()
+                    await self.delete_card_at_client_side(comm)
                     await self.send_card(card,[EMOJI["pick_up"]])
                     insert(card, self["cards"])
                     self["attack_card"] = card
