@@ -335,7 +335,7 @@ async def _on_message(message):
 @client.event
 async def on_reaction_add(reaction, user):
     try:
-        on_reaction_add_(reaction, user)
+        await on_reaction_add_(reaction, user)
     except UserError as err:
         await reaction.message.channel.send(str(err))
 
