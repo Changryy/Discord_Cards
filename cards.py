@@ -289,7 +289,7 @@ async def _on_message(message):
         if not game is None:
             raise UserError("A game has already been started in this channel.")
 
-        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id)
+        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id, game_class=DiscordGame)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
