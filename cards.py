@@ -34,13 +34,25 @@ class Game(dict):
     async def client_delete_cards(self):
         pass
 
+    async def delete_card_at_client_side(self, comm):
+        pass
+    
     async def send_card(self, card, reactions, private=False, channel=None):
-        print(f"sending card {str(card)} ... " + " ".join(reactions))
+        verb = "gets" if private else "plays"
+        print(f"{card.wielder} {verb} {card.display()} ... possible reactions: " + " ".join(reactions))
 
-    async def use_card(self, card, comm):
+    async def status_msg(self, message):
+        print(message)
+
+    async def use_card(self, card, comm=None):
         if self["game_type"] == "Durak":
             defender = self["players"][ (self["attacker"]+1) % len(self["players"]) ]["player_id"]
 
+            if not card.wielder:
+                raise UserError("Card has already been played")
+            if bool(len(self["cards"])%2) != bool(card.wielder == defender):
+                raise UserError("It's not your turn to play")
+            
             if len(self["cards"])%2 == 0 and card.wielder != defender: # attacker code
 
                 if len(self["cards"]) >= 11: # send error if an attacker tries to attack with a 7th card
@@ -48,37 +60,40 @@ class Game(dict):
 
                 if card.wielder == self["players"][self["attacker"]]["player_id"] and len(self["cards"]) == 0: # main attack
                     await self.client_delete_cards()
-                    insert(card, self["cards"])
                     await self.send_card(card,[EMOJI["pick_up"]])
+                    insert(card, self["cards"])
                     self["attack_card"] = card
 
                 elif len(self["cards"]) > 0 and card.value in [x.value for x in self["cards"]]: # other attacks
-                    await reaction.message.delete()
-                    insert(card, self["cards"])
+                    await self.delete_card_at_client_side(comm)
                     await self.send_card(card,[EMOJI["pick_up"]])
+                    insert(card, self["cards"])
                     self["attack_card"] = card
+
+                else:
+                    raise UserError("It's not your turn to attack")
 
             elif len(self["cards"])%2 == 1 and card.wielder == defender: # defender code
 
-                if card.suit == self["cards"][-1].suit and card > self["cards"][-1]: # defend if same suit and card is greater
-                    await reaction.message.delete()
-                    insert(card, self["cards"])
-                    await self.send_card(card,[EMOJI["skip"]])
-
-                elif card.suit == self["trump"].suit: # defend if trump 
-                    await reaction.message.delete()
-                    insert(card, self["cards"])
-                    await self.send_card(card,[EMOJI["skip"]])
-
-                else:
-                    raise UserError("Invalid card.")
+                if card.suit == self["cards"][-1].suit:
+                    if card < self["cards"][-1]: 
+                        raise UserError("Invalid card - you must put higher than the previous card")                        
+                elif card.suit != self["trump"].suit:
+                        raise UserError("Invalid card - you must put same suit as the previous card, or trump")
+                    
+                await self.delete_card_at_client_side(comm)
+                await self.send_card(card,[EMOJI["skip"]])
+                insert(card, self["cards"])
 
                 if self.durak_skip(): # NEXT TURN
                     await self.next_durak_bout()
                     await self.durak_push_cards()
                     await self.status_msg("*Attackers gave up.*"+durak_turn_msg(self))
+            else:
+                ## we should not be here?
+                assert(False)
 
-    async def pick_up(self, user_id, card):
+    async def pick_up(self, user_id):
         if self["game_type"] == "Durak":
             defender_index = (self["attacker"]+1) % len(self["players"])
             defender = self["players"][defender_index]["player_id"]
@@ -90,23 +105,23 @@ class Game(dict):
                 draw(self["cards"], self["players"][defender_index]["hand"], len(self["cards"]))
                 self["attacker"] = (defender_index+1) % len(self["players"])
                 
-                await self.durak_replenish((defender_index-1) % len(self["players"]))
+                self.durak_replenish((defender_index-1) % len(self["players"]))
                 await self.durak_push_cards()
-                await self.status_msg("*"+user.display_name+" picked up all the cards.*"+self.durak_turn_msg())
+                username = [x['player_name'] for x in self['players'] if x['player_id'] == user_id][0]
+                await self.status_msg(f"*{username} picked up all the cards.*"+self.durak_turn_msg())
+            else:
+                raise UserError("Invalid move, only defender can pick up cards, and only on defenders turn")
 
-    async def skip(self, user_id):
+    async def skip(self, user_ids):
         if self["game_type"] == "Durak":
             # player skip recognition
-            skipped_users = []
-            async for u in reaction.users(): skipped_users.append(u.id)
             for p in self["players"]:
-                if p["player_id"] == user.id: p["skipped"] = True
-                elif p["skipped"] and (p["player_id"] not in skipped_users): p["skipped"] = False
+                p["skipped"] = p["player_id"] in user_ids
 
-            if durak_skip(self): # NEXT TURN
+            if self.durak_skip(): # NEXT TURN
+                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
                 await self.next_durak_bout()
                 await self.durak_push_cards()
-                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
 
     async def durak_push_cards(self):
         for p in self["players"]:
@@ -118,7 +133,7 @@ class Game(dict):
     async def next_durak_bout(self): # next bout if everybody skipped and defender defended
         attacker = self["attacker"]
         defender = (attacker+1) % len(self["players"])
-        await self.client_next_durak_bout()
+        await self.client_delete_cards()
         self["cards"] = []
         self["attacker"] = defender
         self.durak_replenish(attacker)
@@ -126,7 +141,7 @@ class Game(dict):
     def durak_skip(self):
         attacker = self["attacker"]
         defender = (attacker+1) % len(self["players"])
-        return (not False in [True if self["players"].index(x) == defender else x["skipped"] for x in self["players"]]) and len(game["cards"]) % 2 == 0
+        return (not False in [True if self["players"].index(x) == defender else x["skipped"] for x in self["players"]]) and len(self["cards"]) % 2 == 0
 
     def durak_replenish(self, attacker): # replenish cards
         d_cards = len(self["deck"])
@@ -135,6 +150,9 @@ class Game(dict):
         players = [self["players"][attacker]] # attacker
         players += [self["players"][(x+attacker+2)%p_count] for x in range(p_count-2)] # other attackers
         players.append(self["players"][(attacker-1)%p_count]) # defender
+        assert_(len(players) == len(self['players']))
+        assert_(len(set([x['player_id'] for x in players])) == len(players))
+        assert_(set([x['player_id'] for x in players]) == set([x['player_id'] for x in self['players']]))
 
         for p in players:
             p_cards = len(p["hand"])
@@ -175,7 +193,7 @@ class DiscordGame(Game):
     async def status_msg(self, message):
         self.client.get_channel(self["channel_id"]).send(message)
 
-    async def delete_card_at_client_side(comm):
+    async def delete_card_at_client_side(self, comm):
         await comm.message.delete()
 
     async def send_card(self, card, reactions, private=False, channel=None):
@@ -345,7 +363,7 @@ async def on_reaction_add_(reaction, user):
         except KeyError: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.pick_up(user.id, card)
+        await game.pick_up(user.id)
 
     elif command == "skip":
         try:
@@ -353,7 +371,7 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.skip(user_id)
+        await game.skip([user_id]+reaction.users())
         
 
                 
