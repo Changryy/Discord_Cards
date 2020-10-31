@@ -289,7 +289,7 @@ async def _on_message(message):
         if not game is None:
             raise UserError("A game has already been started in this channel.")
 
-        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id, game_class=DiscordGame)
+        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id, game_class=DiscordGame, client=client)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
@@ -391,11 +391,11 @@ get_key = lambda value, dictionary : list(filter(lambda a: a != None, [x if dict
 def sort(cards):
     cards.sort(key=lambda x: SUITS.index(x.suit)*100 - x.value)
 
-def create_durak_game(user_id, user_name, channel_id, game_class=Game):
+def create_durak_game(user_id, user_name, channel_id, game_class=Game, *gameargs, **kwgameargs):
     global games
     
     game_id = len(games)
-    new_game = game_class()
+    new_game = game_class(*gameargs, **kwgameargs)
     new_game.update({
         "owner_id" : user_id,
         "channel_id" : channel_id,
