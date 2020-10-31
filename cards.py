@@ -184,14 +184,11 @@ class Game(dict):
         return msg + "**" + a + "'s turn to attack " + d + "!**"
 
 class DiscordGame(Game):
-    def __init__(self, client):
-        self.client = client
-
     async def client_delete_cards(self):
-        await delete_client_messages(self.client.get_channel(self["channel_id"]), len(self["cards"])+1)
+        await delete_client_messages(client.get_channel(self["channel_id"]), len(self["cards"])+1)
 
     async def status_msg(self, message):
-        self.client.get_channel(self["channel_id"]).send(message)
+        client.get_channel(self["channel_id"]).send(message)
 
     async def delete_card_at_client_side(self, comm):
         await comm.message.delete()
@@ -201,7 +198,7 @@ class DiscordGame(Game):
         if private and not channel:
             channel = client.get_user(private).dm_channel
         elif not channel:
-            channel = self.client.get_channel(self['channel_id'])
+            channel = client.get_channel(self['channel_id'])
         bot_msg = await channel.send(file=discord.File(f"PNG/{card.display()}.png"))
         card.discord_id = bot_msg.id
         cards_by_id[card.discord_id] = card
@@ -289,7 +286,7 @@ async def _on_message(message):
         if not game is None:
             raise UserError("A game has already been started in this channel.")
 
-        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id, game_class=DiscordGame, client=client)
+        game = create_durak_game(user_id=user.id, user_name=user.display_name, channel_id=message.channel.id, game_class=DiscordGame)
         await message.channel.send(f"**Starting a game of Durak!**\nGame owner: {user.display_name}\nJoin with `.join`")
 
     if msg == ".join":
