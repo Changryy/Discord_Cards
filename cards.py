@@ -88,7 +88,7 @@ class Game(dict):
                 if self.durak_skip(): # NEXT TURN
                     await self.next_durak_bout()
                     await self.durak_push_cards()
-                    await self.status_msg("*Attackers gave up.*"+durak_turn_msg(self))
+                    await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg(self))
             else:
                 ## we should not be here?
                 assert(False)
@@ -201,7 +201,7 @@ class DiscordGame(Game):
         if private and not channel:
             channel = client.get_user(private).dm_channel
         elif not channel:
-            channel = self.client.get_channel(games['channel_id'])
+            channel = self.client.get_channel(self['channel_id'])
         bot_msg = await channel.send(file=discord.File(f"PNG/{card.display()}.png"))
         card.discord_id = bot_msg.id
         cards_by_id[card.discord_id] = card
@@ -337,7 +337,7 @@ async def on_reaction_add(reaction, user):
     try:
         on_reaction_add_(reaction, user)
     except UserError as err:
-        await message.channel.send(str(err))
+        await reaction.message.channel.send(str(err))
 
 async def on_reaction_add_(reaction, user):
     global games
@@ -371,7 +371,7 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.skip([user_id]+reaction.users())
+        await game.skip([user.id]+reaction.users())
         
 
                 
