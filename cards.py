@@ -88,7 +88,7 @@ class Game(dict):
                 if self.durak_skip(): # NEXT TURN
                     await self.next_durak_bout()
                     await self.durak_push_cards()
-                    await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg(self))
+                    await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
             else:
                 ## we should not be here?
                 assert(False)
