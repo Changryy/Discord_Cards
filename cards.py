@@ -72,6 +72,8 @@ class Game(dict):
 
                 else:
                     raise UserError("It's not your turn to attack")
+                for p in self['players']:
+                    p['skipped'] = False
 
             elif len(self["cards"])%2 == 1 and card.wielder == defender: # defender code
 
@@ -100,7 +102,7 @@ class Game(dict):
 
             #                                                     # NEXT TURN
             if user_id == defender and len(self["cards"])%2 == 1: # defender picks up all the cards
-                self.client_delete_cards()
+                await self.client_delete_cards()
 
                 draw(self["cards"], self["players"][defender_index]["hand"], len(self["cards"]))
                 self["attacker"] = (defender_index+1) % len(self["players"])
@@ -116,7 +118,8 @@ class Game(dict):
         if self["game_type"] == "Durak":
             # player skip recognition
             for p in self["players"]:
-                p["skipped"] = p["player_id"] in user_ids
+                if p["player_id"] in user_ids:
+                    p["skipped"] = True
 
             if self.durak_skip(): # NEXT TURN
                 await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
@@ -368,10 +371,9 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        await game.skip([user.id]+reaction.users())
-        
+        async for user in reactions.users():
+            await game.skip(user)
 
-                
         
 # --------------------------------------------------------------------
 
