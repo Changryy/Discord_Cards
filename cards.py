@@ -155,7 +155,7 @@ class Game(dict):
         if d_cards == 0: return
         p_count = len(self["players"])
         players = [self["players"][attacker]] # attacker
-        players += [self["players"][(x+attacker+2)%p_count] for x in range(p_count-2)] # other attackers
+        players += [self["players"][(x+attacker+1)%p_count] for x in range(p_count-2)] # other attackers
         players.append(self["players"][(attacker-1)%p_count]) # defender
         assert_(len(players) == len(self['players']))
         assert_(len(set([x['player_id'] for x in players])) == len(players))
@@ -237,12 +237,12 @@ class Card:
         else: return self.value < other
 
     def __eq__(self, other):
-        if type(other) is Card: return self.value == other.value
+        if type(other) is Card: return self.value == other.value and self.suit == other.suit
         else: return self.value == other
     
     def __ne__(self, other):
         if type(other) is Card: return self.value != other.value
-        else: return self.value != other
+        else: return self.value != other or self.suit == other.suit
 
 # --------------------------------------------------------------------
 
