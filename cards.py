@@ -126,8 +126,8 @@ class Game(dict):
                     p["skipped"] = True
 
             if self.durak_skip(): # NEXT TURN
-                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
                 await self.next_durak_bout()
+                await self.status_msg("*Attackers gave up.*"+self.durak_turn_msg())
                 await self.durak_push_cards()
 
     async def durak_push_cards(self):
