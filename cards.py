@@ -312,19 +312,6 @@ async def _on_message(message):
             raise UserError("You are not the owner of this game.")
 
 
-        if game["game_type"] == "Durak":
-            # errors #
-            if len(game["players"]) == 1:
-                await message.channel.send("Game requires a minimum of 2 players.")
-                return
-            if len(game["players"]) > 5:
-                await message.channel.send("Game cannot exceed the player limit of 5.")
-                return
-            # errors #
-
-            game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
-            trump = game["deck"].pop() # assign trump
-            game["trump"] = trump
         start_game(game)
 
         if game["game_type"] == "Durak":
