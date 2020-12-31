@@ -10,7 +10,11 @@ from datetime import datetime
 
 # --------------------------------------------------------------------
 
-token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.MdKDRdPj4SFl7x8w4iax-JSskmc"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+token = os.getenv('DISCORD_TOKEN')
+
 client = discord.Client()
 
 VERSION = "0.1.1"
@@ -307,7 +311,6 @@ async def _on_message(message):
         if game["owner_id"] != user.id:
             raise UserError("You are not the owner of this game.")
 
-<<<<<<< HEAD
 
         if game["game_type"] == "Durak":
             # errors #
@@ -322,12 +325,10 @@ async def _on_message(message):
             game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
             trump = game["deck"].pop() # assign trump
             game["trump"] = trump
-=======
         start_game(game)
 
         if game["game_type"] == "Durak":
             trump = game['trump']
->>>>>>> 69dc269bb44da7f8a71506e541c2d0b4156f4244
             await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
             for p in game["players"]: # show cards dealt
                 await client.get_user(p["player_id"]).create_dm()
@@ -388,7 +389,7 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        async for user in reactions.users():
+        async for user in reaction.users():
             await game.skip(user)
 
         
