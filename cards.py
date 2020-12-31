@@ -331,7 +331,7 @@ async def _on_message(message):
                     await delete_client_messages(message.channel, len(p["hand"])+1)
                     sort(p["hand"])
                     for card in p["hand"]:
-                        await game.send_card(card, [EMOJI["use"]], channel=message.channel)
+                        await x.send_card(card, [EMOJI["use"]], channel=message.channel)
 
 
 
