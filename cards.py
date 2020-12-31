@@ -195,7 +195,7 @@ class DiscordGame(Game):
         await delete_client_messages(client.get_channel(self["channel_id"]), len(self["cards"])+1)
 
     async def status_msg(self, message):
-        client.get_channel(self["channel_id"]).send(message)
+        await client.get_channel(self["channel_id"]).send(message)
 
     async def delete_card_at_client_side(self, comm):
         await comm.message.delete()
