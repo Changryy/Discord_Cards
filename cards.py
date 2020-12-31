@@ -10,10 +10,10 @@ from datetime import datetime
 
 # --------------------------------------------------------------------
 
-token = ""
+token = "NDM2OTMyMTc2MjM2MzgwMTYw.WtoazA.MdKDRdPj4SFl7x8w4iax-JSskmc"
 client = discord.Client()
 
-VERSION = "0.0.0"
+VERSION = "0.1.1"
 
 # --------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ EMOJI = {
 ### ON READY
 @client.event
 async def on_ready():
-    pass
+    print("ready")
 
 # --------------------------------------------------------------------
 
@@ -146,7 +146,6 @@ async def on_message(message):
             return
         # errors #
 
-        game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
 
         if game["game_type"] == "Durak":
             # errors #
@@ -158,6 +157,7 @@ async def on_message(message):
                 return
             # errors #
 
+            game["start_time"] = datetime.utcnow().__str__() + " UTC" # set start time
             trump = game["deck"].pop() # assign trump
             game["trump"] = trump
             await message.channel.send(f"{trump.suit} is trump!",file=discord.File(f"PNG/{trump.display()}.png"))
