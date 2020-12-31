@@ -376,8 +376,11 @@ async def on_reaction_add_(reaction, user):
         except: return
         if not user.id in [x["player_id"] for x in game["players"]]: return # return if user not in game
 
-        async for user in reaction.users():
-            await game.skip(user)
+        users = []
+        async for ruser in reaction.users():
+            users.append(ruser.id)
+
+        await game.skip(users)
 
         
 # --------------------------------------------------------------------
